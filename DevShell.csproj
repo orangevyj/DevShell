@@ -1,0 +1,45 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>DevShell</AssemblyName>
+    <RootNamespace>DevShell</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\DevShell.ico</ApplicationIcon>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <Version>1.4.0</Version>
+    <Product>DevShell</Product>
+    <Description>A from-scratch replacement taskbar for Windows.</Description>
+    <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <PublishSingleFile>false</PublishSingleFile>
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ApplicationDefinition Include="App.xaml" SubType="Designer" Generator="MSBuild:Compile" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\DevShell.ico" />
+    <Resource Include="Assets\DevShell.png" />
+    <!-- The banner on the Start menu's DevShell tab. Baked in, so it cannot go missing on a machine
+         that never had the artwork. -->
+    <Resource Include="Assets\DevShellBanner.png" />
+  </ItemGroup>
+
+  <!-- The setup is a project of its own with its own window and application definition; this project
+       builds DevShell, and the payload it carries is the setup's business, not this one's. -->
+  <ItemGroup>
+    <Compile Remove="Installer\**" />
+    <Page Remove="Installer\**" />
+    <ApplicationDefinition Remove="Installer\**" />
+    <None Remove="Installer\**" />
+  </ItemGroup>
+
+</Project>

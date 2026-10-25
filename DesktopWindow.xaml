@@ -1,0 +1,159 @@
+<Window x:Class="DevShell.DesktopWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:l="clr-namespace:DevShell.UI"
+        Title="{l:Tr Desktop_Title}"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        AllowsTransparency="False"
+        WindowStartupLocation="Manual"
+        Left="0" Top="0"
+        Background="Black"
+        FontFamily="{StaticResource TextFont}"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        PreviewKeyDown="Surface_PreviewKeyDown">
+
+    <!-- The wallpaper is set from code (ImageBrush per the Windows "fit" setting); everything
+         inside sits on top of it. Clicking empty space clears the icon selection, and both
+         right-click menus are the shell's own - they are built in code, from the shell's
+         IContextMenu, so the desktop carries everything Explorer's menus carry. Files dropped on
+         the surface land in the Desktop folder, and Ctrl+C / Ctrl+V work on the selected icon. -->
+    <Grid x:Name="Surface"
+          AllowDrop="True"
+          MouseLeftButtonDown="Surface_MouseLeftButtonDown"
+          MouseRightButtonDown="Surface_MouseRightButtonDown"
+          PreviewMouseLeftButtonDown="Surface_PreviewLeftDown"
+          PreviewMouseLeftButtonUp="Surface_PreviewLeftUp"
+          MouseMove="Surface_DragMove"
+          DragOver="Surface_DragOver"
+          Drop="Surface_Drop">
+
+        <ItemsControl x:Name="IconHost">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <Canvas />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+
+            <!-- Grid position is decided by the layout pass, so the container is placed, not the icon.
+                 The selected icon is lifted above its neighbours because its label is wider than the
+                 cell and would otherwise be painted over by the next columns. -->
+            <ItemsControl.ItemContainerStyle>
+                <Style TargetType="ContentPresenter">
+                    <!-- ContainerX, not X: the selected item's container is half the extra width of
+                         its widened chip further left, so the wider label still sits on its own cell
+                         and the container is never asked to shrink its child back into the cell. -->
+                    <Setter Property="Canvas.Left" Value="{Binding ContainerX}" />
+                    <Setter Property="Canvas.Top" Value="{Binding Y}" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                            <Setter Property="Panel.ZIndex" Value="1" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </ItemsControl.ItemContainerStyle>
+
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Border x:Name="Chip"
+                            CornerRadius="4"
+                            ToolTip="{Binding Tooltip}"
+                            ToolTipService.InitialShowDelay="400"
+                            MouseLeftButtonDown="Icon_MouseLeftButtonDown"
+                            MouseRightButtonDown="Icon_MouseRightButtonDown">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Width" Value="{Binding CellWidth}" />
+                                <Setter Property="Height" Value="{Binding CellHeight}" />
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="BorderThickness" Value="1" />
+                                <Setter Property="BorderBrush" Value="Transparent" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource SelectedTile}" />
+                                        <Setter Property="BorderBrush" Value="#66FFFFFF" />
+                                        <!-- The chip is the slot the label is laid out inside, so selected
+                                             it has to take the label's full width and grow downward to the
+                                             label's height. WPF clips a child that outgrows the slot its
+                                             parent arranged it in, and ClipToBounds does not turn that off -
+                                             a wider label inside a cell-sized chip is cut off mid-string no
+                                             matter what the label itself says. -->
+                                        <Setter Property="Width" Value="{Binding SelectedLabelWidth}" />
+                                        <Setter Property="Height" Value="Auto" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+
+                        <StackPanel VerticalAlignment="Top">
+                            <Image Source="{Binding Icon}"
+                                   Width="{Binding IconSize}"
+                                   Height="{Binding IconSize}"
+                                   Stretch="Uniform"
+                                   RenderOptions.BitmapScalingMode="HighQuality" />
+
+                            <!-- The name. Unselected it stays inside the cell and takes an ellipsis
+                                 when two lines are not enough - the box is height-bound because that
+                                 is what makes the ellipsis appear at all. Selected the chip around it
+                                 widens to whatever the name measures (SelectedLabelWidth), and the
+                                 label simply fills it, untrimmed and as tall as the name needs, so the
+                                 name is read in full.
+                                 Both properties that differ between the states have to be set from
+                                 the style: a value written on the element itself beats a trigger, so
+                                 a local Height or TextTrimming would freeze one state into the other. -->
+                            <Grid x:Name="LabelHost" Margin="0,3,0,0" VerticalAlignment="Top">
+                                <Grid.Style>
+                                    <Style TargetType="Grid">
+                                        <Setter Property="Height" Value="32" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                <Setter Property="Height" Value="Auto" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Grid.Style>
+
+                                <TextBlock Text="{Binding DisplayName}"
+                                           FontSize="12"
+                                           Foreground="White"
+                                           TextAlignment="Center"
+                                           VerticalAlignment="Top">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="TextWrapping" Value="Wrap" />
+                                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                                            <Setter Property="Height" Value="32" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                    <Setter Property="TextTrimming" Value="None" />
+                                                    <Setter Property="Height" Value="Auto" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                    <TextBlock.Effect>
+                                        <DropShadowEffect Color="Black" BlurRadius="4" ShadowDepth="0" Opacity="0.9" />
+                                    </TextBlock.Effect>
+                                </TextBlock>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- The selection box. It sits above the icons so the outline is never hidden behind a
+             label, and it takes no pointer input: the surface keeps tracking the drag that draws
+             it, so the box can be dragged across the icons it is selecting. -->
+        <Canvas x:Name="BandLayer" IsHitTestVisible="False">
+            <Border x:Name="SelectionBand"
+                    Background="#330A84FF"
+                    BorderBrush="#FF59A6FF"
+                    BorderThickness="1"
+                    Visibility="Collapsed" />
+        </Canvas>
+    </Grid>
+</Window>
