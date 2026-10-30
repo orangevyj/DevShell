@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -113,6 +114,11 @@ public partial class MainWindow : Window
     {
         SynchronizeShellMode();
         SynchronizeTroubleshooters();
+
+        if (_startApps.Count > 0)
+        {
+            BuildStartRows();
+        }
 
         if (StartInfoRows.Children.Count > 0)
         {
@@ -674,14 +680,24 @@ public partial class MainWindow : Window
     {
         try
         {
-            var apps = PinnedApps.Load();
+            var apps = PinnedApps.Load(_config.PinnedOrder);
             PinnedItems.ItemsSource = apps;
+
+            var order = apps.Select(app => Path.GetFileName(app.ShortcutPath)).ToList();
+            if (!order.SequenceEqual(_config.PinnedOrder, StringComparer.OrdinalIgnoreCase))
+            {
+                _config.PinnedOrder = order;
+                _config.Save();
+            }
         }
         catch (Exception ex)
         {
             App.Log("PinnedApps", ex);
         }
     }
+
+    /// <summary>Reloads the pinned strip after something outside the bar changed it.</summary>
+    internal void ReloadPinnedApps() => LoadPinnedApps();
 
     private void App_Click(object sender, RoutedEventArgs e)
     {

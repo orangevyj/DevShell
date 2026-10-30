@@ -4,14 +4,21 @@ using DevShell.Interop;
 
 namespace DevShell.Services;
 
-internal sealed record StartApp(string Name, string ShortcutPath, string Group, ImageSource? Icon)
+public sealed record StartApp(string Name, string ShortcutPath, string Group, ImageSource? Icon)
 {
     public string ToolTip => $"{Name}\n{ShortcutPath}";
+
+    /// <summary>The folder path as it reads under a heading: "Accessories › System Tools".</summary>
+    public string Folder => Group.Length == 0 ? string.Empty : Group.Replace("\\", " › ");
+
+    /// <summary>Programs are not headings; the list binds one container style to both row kinds.</summary>
+    public bool IsGroupRow => false;
 }
 
 /// <summary>
 /// The programs Windows itself lists in its Start menu: every shortcut under the per-user and the
-/// machine-wide "Start Menu\Programs" folders, flattened into one alphabetical list.
+/// machine-wide "Start Menu\Programs" folders, kept in the folders Windows puts them in, so the menu
+/// groups them the way Explorer does instead of showing one long alphabetical list.
 /// </summary>
 internal static class StartMenuApps
 {
@@ -60,7 +67,11 @@ internal static class StartMenuApps
             }
         }
 
-        return apps.OrderBy(app => app.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+        return apps
+            .OrderBy(app => app.Group.Length == 0 ? 0 : 1)
+            .ThenBy(app => app.Group, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(app => app.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
     }
 
     public static LaunchResult Launch(StartApp app) => ShellActions.Open(app.ShortcutPath);
@@ -70,10 +81,14 @@ internal static class StartMenuApps
 
     public static LaunchResult OpenLocation(StartApp app) => ShellActions.OpenFileLocation(app.ShortcutPath);
 
-    /// <summary>The folder a shortcut sits in, which is how Windows groups its own list.</summary>
+    /// <summary>
+    /// The folder a shortcut sits in, relative to the Start Menu root. A folder is exactly how
+    /// Windows groups programs, and root-level programs come back empty.
+    /// </summary>
     private static string GroupOf(string root, string file)
     {
         var folder = Path.GetDirectoryName(file) ?? root;
-        return folder.Length <= root.Length ? string.Empty : Path.GetFileName(folder);
+        var relative = Path.GetRelativePath(root, folder);
+        return relative == "." ? string.Empty : relative;
     }
 }

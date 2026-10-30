@@ -1,4 +1,5 @@
-﻿using System.Net.NetworkInformation;
+﻿using System.Net;
+using System.Net.NetworkInformation;
 
 namespace DevShell.Services;
 
@@ -66,14 +67,8 @@ internal sealed class NetworkMonitor
             long received = 0;
             long sent = 0;
 
-            foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
+            foreach (var nic in ActiveInterfaces())
             {
-                if (nic.NetworkInterfaceType == NetworkInterfaceType.Loopback ||
-                    nic.OperationalStatus != OperationalStatus.Up)
-                {
-                    continue;
-                }
-
                 IPInterfaceStatistics stats;
                 try
                 {
@@ -141,6 +136,72 @@ internal sealed class NetworkMonitor
         {
             App.Log("NetworkMonitor.Sample", ex);
         }
+    }
+
+    /// <summary>
+    /// The interfaces whose counters describe the machine's real traffic. Windows lists each physical
+    /// adapter once, then again for every filter driver bound to it - the WFP layer and the QoS packet
+    /// scheduler both report the same bytes as the card - so adding up everything that is "Up"
+    /// multiplies the rate by the number of filters. The link that carries the default route is the
+    /// one to count; shims and WAN miniports carry no route and are left out.
+    /// </summary>
+    internal static IReadOnlyList<NetworkInterface> ActiveInterfaces()
+    {
+        var candidates = new List<(NetworkInterface Nic, bool HasRoute)>();
+
+        foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
+        {
+            if (nic.OperationalStatus != OperationalStatus.Up ||
+                nic.NetworkInterfaceType == NetworkInterfaceType.Loopback ||
+                IsFilterShim(nic))
+            {
+                continue;
+            }
+
+            var hasRoute = false;
+            try
+            {
+                hasRoute = nic.GetIPProperties().GatewayAddresses.Any(gateway =>
+                    gateway.Address is not null &&
+                    !gateway.Address.Equals(IPAddress.Any) &&
+                    !gateway.Address.Equals(IPAddress.IPv6Any));
+            }
+            catch (NetworkInformationException)
+            {
+                // An adapter that cannot describe itself is not one to count.
+            }
+
+            candidates.Add((nic, hasRoute));
+        }
+
+        var routed = candidates.Where(candidate => candidate.HasRoute)
+                               .Select(candidate => candidate.Nic)
+                               .ToList();
+
+        if (routed.Count > 0)
+        {
+            return routed;
+        }
+
+        // No default route anywhere: a LAN-only machine, or a VPN that has taken the route over.
+        return candidates
+               .Where(candidate => candidate.Nic.NetworkInterfaceType is NetworkInterfaceType.Ethernet
+                                   or NetworkInterfaceType.GigabitEthernet
+                                   or NetworkInterfaceType.Wireless80211)
+               .Select(candidate => candidate.Nic)
+               .ToList();
+    }
+
+    /// <summary>A filter driver's view of a card, or a miniport, rather than a card of its own.</summary>
+    private static bool IsFilterShim(NetworkInterface nic)
+    {
+        var description = nic.Description;
+
+        return description.Contains("WFP", StringComparison.OrdinalIgnoreCase)
+            || description.Contains("Packet Scheduler", StringComparison.OrdinalIgnoreCase)
+            || description.Contains("Miniport", StringComparison.OrdinalIgnoreCase)
+            || description.Contains("Filter", StringComparison.OrdinalIgnoreCase)
+            || description.Contains("Pseudo-Interface", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

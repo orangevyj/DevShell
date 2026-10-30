@@ -8,7 +8,7 @@
 ; folder in as PublishDir. Compiling this script on its own picks up .\publish instead.
 
 #define MyAppName "DevShell"
-#define MyAppVersion "1.4"
+#define MyAppVersion "1.5"
 #define MyAppPublisher "DevShell"
 #define MyAppComment "A from-scratch replacement taskbar for Windows."
 #define MyAppExeName "DevShell.exe"

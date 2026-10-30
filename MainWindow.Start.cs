@@ -20,7 +20,12 @@ namespace DevShell;
 /// </summary>
 public partial class MainWindow
 {
-    private readonly ObservableCollection<StartApp> _startApps = new();
+    /// <summary>The programs, in folder order, as they were read from the Start Menu.</summary>
+    private readonly List<StartApp> _startApps = new();
+
+    /// <summary>What the list shows: a folder heading, then the programs in that folder.</summary>
+    private readonly ObservableCollection<object> _startRows = new();
+
     private bool _startAppsRequested;
 
     /// <summary>The menu a flyout opened last, so the topmost watch can keep it above that flyout.</summary>
@@ -28,7 +33,7 @@ public partial class MainWindow
 
     private void InitializeStart()
     {
-        StartList.ItemsSource = _startApps;
+        StartList.ItemsSource = _startRows;
 
         var account = UserAccount.DisplayName;
         StartHeader.Text = account;
@@ -233,15 +238,38 @@ public partial class MainWindow
             var apps = StartMenuApps.Load();
             Dispatcher.BeginInvoke(new Action(() =>
             {
-                foreach (var app in apps)
-                {
-                    _startApps.Add(app);
-                }
+                _startApps.Clear();
+                _startApps.AddRange(apps);
+                BuildStartRows();
 
                 // The search box's Apps tab may already be open and waiting for this list.
                 RefreshAppSearch();
             }));
         });
+    }
+
+    /// <summary>
+    /// Turns the folder-ordered program list into the rows the menu shows: a heading for every Start
+    /// Menu folder, then the programs inside it, which is how Windows groups its own list. Rebuilt
+    /// when the language changes so the heading for programs at the root follows it.
+    /// </summary>
+    private void BuildStartRows()
+    {
+        _startRows.Clear();
+
+        string? group = null;
+
+        foreach (var app in _startApps)
+        {
+            if (!string.Equals(group, app.Group, StringComparison.Ordinal))
+            {
+                group = app.Group;
+                _startRows.Add(new StartGroupRow(
+                    group.Length == 0 ? Strings.T("Start_OtherApps") : app.Folder));
+            }
+
+            _startRows.Add(app);
+        }
     }
 
     private void StartApp_Click(object sender, MouseButtonEventArgs e)
@@ -252,6 +280,7 @@ public partial class MainWindow
         }
 
         e.Handled = true;
+        _dragApp = null;
         CloseFlyouts();
         StartMenuApps.Launch(app);
     }
@@ -275,7 +304,21 @@ public partial class MainWindow
         AddStartEntry(menu, Strings.T("Hit_Open"), () => StartMenuApps.Launch(app));
         AddStartEntry(menu, Strings.T("Hit_Admin"), () => StartMenuApps.LaunchAsAdministrator(app, out _));
         AddStartEntry(menu, Strings.T("Hit_Location"), () => StartMenuApps.OpenLocation(app));
+        menu.Items.Add(new Separator());
+        AddStartEntry(menu, Strings.T("Pin_Add"), () => PinFromStart(app));
         menu.IsOpen = true;
+    }
+
+    /// <summary>Puts a Start menu shortcut on the bar, then refreshes the bar so it is there at once.</summary>
+    private void PinFromStart(StartApp app)
+    {
+        if (PinnedApps.Pin(app.ShortcutPath, out _, out var error))
+        {
+            LoadPinnedApps();
+            return;
+        }
+
+        ShellActions.ShowError(error ?? Strings.T("Pin_Failed"));
     }
 
     private static void AddStartEntry(ContextMenu menu, string header, Action action)
@@ -453,4 +496,14 @@ public partial class MainWindow
             System.Windows.Threading.DispatcherPriority.Loaded,
             new Action(() => WindowEffects.AssertTopmost(menu)));
     }
+}
+
+/// <summary>
+/// A folder heading in the Start menu's list. It carries nothing but its title - the programs under
+/// it follow as their own rows - which keeps the list one flat, fast-to-scroll collection.
+/// </summary>
+public sealed record StartGroupRow(string Title)
+{
+    /// <summary>True for a heading, so the list can give it a row that neither hovers nor clicks.</summary>
+    public bool IsGroupRow => true;
 }

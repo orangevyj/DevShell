@@ -36,6 +36,11 @@ public sealed class Strings : INotifyPropertyChanged
         ["Menu_DockOverlay"] = ["Dock: overlay the system taskbar", "Закрепить: поверх системной панели", "Andocken: über der Systemleiste", "Ancrer : par-dessus la barre système", "Acoplar: sobre la barra del sistema"],
         ["Menu_DockAppBar"] = ["Dock: reserve screen space", "Закрепить: зарезервировать место на экране", "Andocken: Bildschirmplatz reservieren", "Ancrer : réserver l'espace écran", "Acoplar: reservar espacio en pantalla"],
         ["Menu_Exit"] = ["Exit DevShell", "Выйти из DevShell", "DevShell beenden", "Quitter DevShell", "Salir de DevShell"],
+        ["Pin_Add"] = ["Pin to taskbar", "Закрепить на панели задач", "An die Taskleiste anheften", "Épingler à la barre des tâches", "Anclar a la barra de tareas"],
+        ["Pin_Remove"] = ["Unpin from taskbar", "Открепить от панели задач", "Von der Taskleiste lösen", "Détacher de la barre des tâches", "Desanclar de la barra de tareas"],
+        ["Pin_MissingSource"] = ["That program is no longer where it was.", "Этой программы больше нет на прежнем месте.", "Das Programm liegt nicht mehr an seinem Platz.", "Ce programme n'est plus à son emplacement.", "Ese programa ya no está en su ubicación."],
+        ["Pin_NotAPin"] = ["That shortcut is not in the taskbar folder.", "Этот ярлык не лежит в папке панели задач.", "Diese Verknüpfung liegt nicht im Taskleistenordner.", "Ce raccourci n'est pas dans le dossier de la barre des tâches.", "Ese acceso directo no está en la carpeta de la barra de tareas."],
+        ["Pin_Failed"] = ["Could not change the taskbar pins.", "Не удалось изменить закреплённые программы.", "Die angehefteten Apps konnten nicht geändert werden.", "Impossible de modifier les épingles de la barre des tâches.", "No se pudo cambiar lo anclado a la barra de tareas."],
         ["Menu_Acrylic"] = ["Acrylic blur", "Акриловое размытие", "Acryl-Unschärfe", "Flou acrylique", "Desenfoque acrílico"],
         ["Menu_ShowDesktop"] = ["Show desktop layer", "Показать слой рабочего стола", "Desktop-Ebene anzeigen", "Afficher la couche bureau", "Mostrar la capa de escritorio"],
         ["Menu_TaskManager"] = ["Task Manager", "Диспетчер задач", "Task-Manager", "Gestionnaire des tâches", "Administrador de tareas"],
@@ -64,6 +69,7 @@ public sealed class Strings : INotifyPropertyChanged
 
         // The Start menu.
         ["Start_AllApps"] = ["All apps", "Все приложения", "Alle Apps", "Toutes les applications", "Todas las aplicaciones"],
+        ["Start_OtherApps"] = ["Other apps", "Другие приложения", "Weitere Apps", "Autres applications", "Otras aplicaciones"],
         ["Start_Settings"] = ["Settings", "Параметры", "Einstellungen", "Paramètres", "Configuración"],
         ["Start_Power"] = ["Power", "Завершение работы", "Energie", "Alimentation", "Energía"],
         ["Start_Account"] = ["Account", "Учётная запись", "Konto", "Compte", "Cuenta"],

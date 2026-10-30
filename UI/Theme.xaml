@@ -347,6 +347,17 @@
         </Setter>
     </Style>
 
+    <!-- A folder heading in the Start menu: the row is there for its text, so it neither hovers nor
+         takes a click. Programs keep the plain row look. -->
+    <Style x:Key="StartRow" TargetType="ListBoxItem" BasedOn="{StaticResource ResultRow}">
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsGroupRow}" Value="True">
+                <Setter Property="IsHitTestVisible" Value="False" />
+                <Setter Property="Focusable" Value="False" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
     <Style x:Key="FlyoutList" TargetType="ListBox">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />

@@ -99,25 +99,16 @@ public partial class DesktopWindow
     }
 
     /// <summary>
-    /// True while the mouse is over the desktop surface or the bar. Everything else - a real window,
-    /// another shell surface - counts as somewhere the icon is allowed to be dragged out to.
+    /// True while the mouse is over a desktop surface - and only a desktop surface. The bar counts as
+    /// somewhere else on purpose: it is a drop target of its own, so an icon being dragged onto it has
+    /// to become a shell drag before the pointer arrives, or the bar never hears about the drop.
     /// </summary>
     private static bool IsOverOurOwnWindows()
     {
         var under = PointWindows.RootUnderCursor();
-        if (under == IntPtr.Zero)
+        if (under == IntPtr.Zero || Application.Current is not { } app)
         {
             return false;
-        }
-
-        if (Application.Current is not { } app)
-        {
-            return false;
-        }
-
-        if (app.MainWindow is { } bar && new WindowInteropHelper(bar).Handle == under)
-        {
-            return true;
         }
 
         return app.Windows.OfType<DesktopWindow>()

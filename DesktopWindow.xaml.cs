@@ -642,6 +642,7 @@ public partial class DesktopWindow : Window
             extras.Add(new ExtraMenuItem(Strings.T("Dlg_Rename"), () => Rename(icon)));
             extras.Add(new ExtraMenuItem(Strings.T("Hit_Admin"), () => OpenAsAdministrator(path)));
             extras.Add(new ExtraMenuItem(Strings.T("Hit_CopyPath"), () => CopyPath(path)));
+            extras.Add(new ExtraMenuItem(Strings.T("Pin_Add"), () => PinToTaskbar(path)));
         }
 
         using var menu = new ShellContextMenu();
@@ -702,6 +703,24 @@ public partial class DesktopWindow : Window
         if (result == LaunchResult.Failed && error is not null)
         {
             ShellActions.ShowError(error);
+        }
+    }
+
+    /// <summary>
+    /// Pins a desktop file or shortcut to the bar. The bar reads the pin folder itself, so it is told
+    /// to reload rather than guessing that it will notice.
+    /// </summary>
+    private static void PinToTaskbar(string path)
+    {
+        if (!PinnedApps.Pin(path, out _, out var error))
+        {
+            ShellActions.ShowError(error ?? Strings.T("Pin_Failed"));
+            return;
+        }
+
+        if ((Application.Current as App)?.MainWindow is MainWindow bar)
+        {
+            bar.ReloadPinnedApps();
         }
     }
 

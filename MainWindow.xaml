@@ -3,11 +3,16 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:l="clr-namespace:DevShell.UI"
         xmlns:ui="clr-namespace:DevShell.UI"
+        xmlns:local="clr-namespace:DevShell"
+        xmlns:svc="clr-namespace:DevShell.Services"
         Title="DevShell"
         WindowStyle="None"
         WindowStartupLocation="Manual"
         ResizeMode="NoResize"
         ShowInTaskbar="False"
+        AllowDrop="True"
+        DragOver="Bar_DragOver"
+        Drop="Bar_Drop"
         Topmost="True"
         AllowsTransparency="False"
         Background="#FF12141B"
@@ -121,6 +126,8 @@
                         <MenuItem Header="{l:Tr Hit_Open}" Click="AppMenuOpen_Click" />
                         <MenuItem Header="{l:Tr Hit_Admin}" Click="AppMenuAdmin_Click" />
                         <MenuItem Header="{l:Tr Hit_Location}" Click="AppMenuLocation_Click" />
+                        <Separator />
+                        <MenuItem Header="{l:Tr Pin_Remove}" Click="AppMenuUnpin_Click" />
                     </ContextMenu>
                 </Button.ContextMenu>
             </Button>
@@ -400,7 +407,9 @@
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="8,0,0,0"
                             VerticalAlignment="Center">
                     <ItemsControl x:Name="PinnedItems" VerticalAlignment="Center"
-                                  ItemTemplate="{StaticResource AppTemplate}">
+                                  ItemTemplate="{StaticResource AppTemplate}"
+                                  PreviewMouseLeftButtonDown="PinnedStrip_DragStart"
+                                  PreviewMouseMove="PinnedStrip_DragMove">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <StackPanel Orientation="Horizontal" />
@@ -624,14 +633,27 @@
                         </StackPanel>
 
                         <Grid>
-                            <!-- The programs Windows lists, read from the two Start Menu folders. -->
-                            <ListBox x:Name="StartList" Style="{StaticResource FlyoutList}" MaxHeight="470">
-                                <ListBox.ItemTemplate>
-                                    <DataTemplate>
+                            <!-- The programs Windows lists, read from the two Start Menu folders and
+                                 kept in the folders Windows groups them in: one heading per folder,
+                                 then the programs in it. -->
+                            <ListBox x:Name="StartList" Style="{StaticResource FlyoutList}" MaxHeight="470"
+                                     ItemContainerStyle="{StaticResource StartRow}">
+                                <ListBox.Resources>
+                                    <!-- A folder heading. It is not a row you can click or hover:
+                                         the container style turns hit testing off for it. -->
+                                    <DataTemplate DataType="{x:Type local:StartGroupRow}">
+                                        <TextBlock Text="{Binding Title}" Style="{StaticResource CaptionDim}"
+                                                   FontSize="11" FontWeight="SemiBold" Margin="10,10,4,5"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </DataTemplate>
+
+                                    <DataTemplate DataType="{x:Type svc:StartApp}">
                                         <Grid Background="Transparent" ToolTip="{Binding ToolTip}"
                                               ToolTipService.InitialShowDelay="600"
                                               MouseLeftButtonUp="StartApp_Click"
-                                              MouseRightButtonUp="StartApp_RightClick">
+                                              MouseRightButtonUp="StartApp_RightClick"
+                                              PreviewMouseLeftButtonDown="StartApp_DragStart"
+                                              PreviewMouseMove="StartApp_DragMove">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="Auto" />
                                                 <ColumnDefinition Width="*" />
@@ -640,15 +662,13 @@
                                             <Image Grid.Column="0" Width="20" Height="20" VerticalAlignment="Center"
                                                    Source="{Binding Icon}" />
 
-                                            <StackPanel Grid.Column="1" Margin="10,0,4,0" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Name}" Style="{StaticResource Caption}"
-                                                           FontSize="13" TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{Binding Group}" Style="{StaticResource CaptionDim}"
-                                                           FontSize="11" TextTrimming="CharacterEllipsis" Margin="0,1,0,0" />
-                                            </StackPanel>
+                                            <TextBlock Grid.Column="1" Text="{Binding Name}"
+                                                       Style="{StaticResource Caption}" FontSize="13"
+                                                       Margin="10,0,4,0" VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis" />
                                         </Grid>
                                     </DataTemplate>
-                                </ListBox.ItemTemplate>
+                                </ListBox.Resources>
                             </ListBox>
 
                             <!-- The DevShell tab: banner, version, and the details worth pasting into

@@ -50,6 +50,14 @@ internal sealed class Config
     /// </summary>
     public string Language { get; set; } = "auto";
 
+    /// <summary>
+    /// The order the pinned buttons are shown in, as shortcut file names. Explorer keeps its own
+    /// order in the Taskband blob, which is not something a shell should write behind its back, so
+    /// DevShell records the order it was given: pin a program and it lands at the end, drag one and
+    /// it stays where it was dropped.
+    /// </summary>
+    public List<string> PinnedOrder { get; set; } = new();
+
     /// <summary>Walk every fixed/removable drive at startup (results are cached for speed).</summary>
     public bool IndexOnStartup { get; set; } = true;
 
