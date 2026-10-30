@@ -54,6 +54,12 @@ public partial class MainWindow
 
     private void WifiScan_Click(object sender, RoutedEventArgs e) => _ = ScanWifiAsync();
 
+    /// <summary>
+    /// Asks the card for a fresh sweep and shows what it turned up. Windows accepts the request at
+    /// once and fills its list a few seconds later, so the list is read repeatedly and the first
+    /// answer with anything in it is used: a single sample taken too early is how a working scan
+    /// ends up being reported as "no networks in range".
+    /// </summary>
     private async Task ScanWifiAsync()
     {
         if (_wifiScanning)
@@ -64,17 +70,34 @@ public partial class MainWindow
         _wifiScanning = true;
         var previous = WifiStatusText.Text;
         WifiStatusText.Text = Strings.T("Wifi_Scanning");
+        WifiScanButton.IsEnabled = false;
 
         try
         {
-            Wlan.Scan();
+            var error = Wlan.Scan();
+            if (error != 0)
+            {
+                App.LogInfo($"Wifi.Scan: WlanScan was refused (0x{error:X8})");
+                WifiStatusText.Text = Strings.T("Wifi_ScanFailed");
+                return;
+            }
 
-            // WlanScan returns immediately; Windows reports what it found a few seconds later.
-            await Task.Delay(TimeSpan.FromSeconds(3));
+            var found = 0;
+            for (var attempt = 0; attempt < 16 && NetworkPopup.IsOpen; attempt++)
+            {
+                await Task.Delay(500);
+
+                found = Wlan.Networks().Count;
+                if (found > 0)
+                {
+                    break;
+                }
+            }
 
             if (NetworkPopup.IsOpen)
             {
                 RefreshWifi();
+                App.LogInfo($"Wifi.Scan: {found} network(s) in range");
             }
             else
             {
@@ -88,6 +111,7 @@ public partial class MainWindow
         }
         finally
         {
+            WifiScanButton.IsEnabled = true;
             _wifiScanning = false;
         }
     }

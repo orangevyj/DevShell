@@ -58,6 +58,8 @@ internal static class Wlan
 
     private const uint ClientVersion = 2;            // Windows Vista and later
     private const uint ErrorSuccess = 0;
+    private const uint ErrorInvalidState = 0x0000139F;   // ERROR_INVALID_STATE, e.g. radio off
+    private const uint ErrorServiceNotRunning = 0x00000426; // ERROR_SERVICE_NOT_ACTIVE
 
     // WLAN_INTERFACE_INFO_LIST: DWORD count, DWORD index, then WLAN_INTERFACE_INFO[]
     private const int InterfaceListHeader = 8;
@@ -76,7 +78,7 @@ internal static class Wlan
     private const int FlagsOffset = 620;
 
     /// <summary>A wireless card, as the WLAN service knows it.</summary>
-    internal sealed record Radio(Guid Id, string Description, bool Connected);
+    internal sealed record Radio(Guid Id, string Description, bool Connected, bool Ready);
 
     /// <summary>True when this machine has a wireless interface at all, i.e. Wi-Fi is worth offering.</summary>
     public static bool IsAvailable()
@@ -111,22 +113,65 @@ internal static class Wlan
             return Array.Empty<WifiNetwork>();
         }
 
+        // One interface may answer nothing while another sees the whole neighbourhood: a Wi-Fi
+        // Direct virtual adapter is enumerable, ready, and permanently empty, and it is not always
+        // the second one. Ask the best candidate first and keep looking while the answer is empty.
         var radios = client.Radios();
-        return radios.Count == 0 ? Array.Empty<WifiNetwork>() : client.Networks(radios[0].Id);
+        foreach (var radio in InOrder(radios))
+        {
+            var found = client.Networks(radio.Id);
+            if (found.Count > 0)
+            {
+                return found;
+            }
+        }
+
+        return Array.Empty<WifiNetwork>();
     }
 
-    /// <summary>Asks the card to look around. Windows reports the results a few seconds later.</summary>
-    public static bool Scan()
+    /// <summary>
+    /// Asks the card to look around and reports the Win32 error, 0 when the request was accepted.
+    /// Windows reports the results a few seconds later.
+    /// </summary>
+    public static uint Scan()
     {
         using var client = Client.Open();
         if (client is null)
         {
-            return false;
+            return ErrorServiceNotRunning;
         }
 
         var radios = client.Radios();
-        return radios.Count != 0 && client.Scan(radios[0].Id);
+        var error = ErrorInvalidState;
+
+        // A scan on an interface that is not ready is what makes the button look broken, so try
+        // every radio rather than the first one and report the last failure if none took it.
+        foreach (var radio in InOrder(radios))
+        {
+            error = client.Scan(radio.Id);
+            if (error == ErrorSuccess)
+            {
+                return ErrorSuccess;
+            }
+        }
+
+        return radios.Count == 0 ? ErrorInvalidState : error;
     }
+
+    /// <summary>
+    /// The interfaces worth asking first: a real, ready adapter, then any ready one, then the rest -
+    /// with connected ones ahead of their peers at each step.
+    /// </summary>
+    private static IEnumerable<Radio> InOrder(IReadOnlyList<Radio> radios) => radios
+        .OrderByDescending(r => r.Ready && !LooksVirtual(r.Description))
+        .ThenByDescending(r => r.Ready)
+        .ThenByDescending(r => r.Connected);
+
+    /// <summary>Filter drivers and hosted-network shims that carry no stations of their own.</summary>
+    private static bool LooksVirtual(string description) =>
+        description.Contains("Wi-Fi Direct", StringComparison.OrdinalIgnoreCase) ||
+        description.Contains("Hosted Network", StringComparison.OrdinalIgnoreCase) ||
+        description.Contains("Virtual", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Stores a profile for <paramref name="network"/> and joins it. An open network is joined with
@@ -193,8 +238,9 @@ internal static class Wlan
             var description = Marshal.PtrToStringUni(IntPtr.Add(entry, InterfaceDescriptionOffset))
                               ?? "Wireless adapter";
 
-            // WLAN_INTERFACE_STATE: 1 is wlan_interface_state_connected.
-            radios.Add(new Radio(new Guid(guidBytes), description, Marshal.ReadInt32(entry, InterfaceStateOffset) == 1));
+            // WLAN_INTERFACE_STATE: 0 is not ready, 1 is connected; anything else can still scan.
+            var state = Marshal.ReadInt32(entry, InterfaceStateOffset);
+            radios.Add(new Radio(new Guid(guidBytes), description, state == 1, state != 0));
         }
 
         return radios;
@@ -469,7 +515,8 @@ internal static class Wlan
             }
         }
 
-        public bool Scan(Guid id) => WlanScan(_handle, ref id, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero) == ErrorSuccess;
+        /// <summary>Asks for a scan and reports the Win32 error, 0 when the request was taken.</summary>
+        public uint Scan(Guid id) => WlanScan(_handle, ref id, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
 
         /// <summary>Stores a profile and reports why Windows refused it, or 0 when it took it.</summary>
         public uint SetProfile(Guid id, string name, string xml)
